@@ -13,4 +13,8 @@
     <PackageReference Include="Microsoft.AspNetCore.OpenApi" Version="9.0.10" />
   </ItemGroup>
 
+  <ItemGroup>
+    <ProjectReference Include="..\GEST.Aplicacao\GEST.Aplicacao.csproj" />
+  </ItemGroup>
+
 </Project>

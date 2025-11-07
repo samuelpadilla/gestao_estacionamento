@@ -1,3 +1,14 @@
 <Solution>
-  <Project Path="GEST.Api/GEST.Api.csproj" />
+  <Folder Name="/1 - Servicos/">
+    <Project Path="GEST.Api/GEST.Api.csproj" />
+  </Folder>
+  <Folder Name="/2 - Aplicacao/">
+    <Project Path="GEST.Aplicacao/GEST.Aplicacao.csproj" Id="d85e2c2b-2987-4e71-920e-e666f40f9767" />
+  </Folder>
+  <Folder Name="/3 - Dominio/">
+    <Project Path="GEST.Dominio/GEST.Dominio.csproj" Id="9af15c5d-11f3-4307-9f1b-b2c5a194cae0" />
+  </Folder>
+  <Folder Name="/4 - Infraestrutura/">
+    <Project Path="GEST.Infra/GEST.Infra.csproj" Id="655681ba-9c07-4541-aa64-7166428c9441" />
+  </Folder>
 </Solution>
