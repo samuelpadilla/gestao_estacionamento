@@ -10,7 +10,7 @@ namespace GEST.Infrastructure;
 
 public static class InfraSetup
 {
-    public static IServiceCollection AdicionarInfra(this IServiceCollection services, IConfiguration cfg, IHostEnvironment env)
+    public static IServiceCollection AddInfra(this IServiceCollection services, IConfiguration cfg, IHostEnvironment env)
     {
         var connSigaBoletos = cfg.GetConnectionString("ConnGest") ?? "";
         services.AddDbContext<GestContext>(db =>
