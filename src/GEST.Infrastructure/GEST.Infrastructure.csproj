@@ -7,7 +7,7 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <ProjectReference Include="..\GEST.Aplicacao\GEST.Application.csproj" />
+    <ProjectReference Include="..\GEST.Application\GEST.Application.csproj" />
     <ProjectReference Include="..\GEST.Domain\GEST.Domain.csproj" />
   </ItemGroup>
 
@@ -19,6 +19,7 @@
       <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
     </PackageReference>
     <PackageReference Include="Microsoft.Extensions.Hosting.Abstractions" Version="9.0.10" />
+    <PackageReference Include="Microsoft.Extensions.Http" Version="9.0.10" />
   </ItemGroup>
 
 </Project>

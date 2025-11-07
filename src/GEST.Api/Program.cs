@@ -1,7 +1,11 @@
-using AspNetCoreRateLimit;
+using GEST.Api.Endpoints;
+using GEST.Api.HostedServices;
+using GEST.Application;
+using GEST.Infrastructure.Setup;
 using Serilog;
 using Serilog.Debugging;
 using Serilog.Events;
+using System.Text.Json.Serialization;
 
 SelfLog.Enable(msg =>
 {
@@ -41,25 +45,50 @@ try
           .WriteTo.File("logs/app-.log", rollingInterval: RollingInterval.Day, retainedFileCountLimit: 14, shared: true);
     });
 
-    services.AddCors();
-    services.AddProblemDetails();
-    services.AddMemoryCache();
-    services.AddOpenApi();
+
+    services.AddCors(o => o.AddDefaultPolicy(p => p.AllowAnyOrigin().AllowAnyHeader().AllowAnyMethod()));
+
+    services.AddProblemDetails(); services.ConfigureHttpJsonOptions(o =>
+    {
+        // Suporte a DateOnly no JSON
+        o.SerializerOptions.Converters.Add(new DateOnlyJsonConverter());
+        o.SerializerOptions.DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull;
+    });
+
+    services.AddOpenApi("v1", options =>
+    {
+        options.AddDocumentTransformer((doc, ctx, ct) =>
+        {
+            doc.Info.Title = "GEST Backend API";
+            doc.Info.Description = "API para controle de garagem e faturamento.";
+            doc.Info.Version = "v1";
+            return Task.CompletedTask;
+        });
+    });
+
+    builder.Services
+        .AddInfrastructure(config, env)
+        .AddApplication(config);
+
+    //builder.Services.AddHostedService<GarageSyncHostedService>();
 
     var app = builder.Build();
 
     if (app.Environment.IsDevelopment())
     {
         app.MapOpenApi();
+        app.UseSwaggerUI(options =>
+        {
+            options.SwaggerEndpoint("/openapi/v1.json", "GEST API v1");
+        });
     }
 
     app.UseHttpsRedirection();
+    app.UseCors();
 
-    app.UseCors(p => p.AllowAnyOrigin().AllowAnyHeader().AllowAnyMethod());
-    app.UseIpRateLimiting();
+    app.MapGestEndpoints();
 
     Log.Information("API iniciando Kestrel...");
-
     await app.RunAsync();
 }
 catch (Exception ex)
@@ -69,4 +98,14 @@ catch (Exception ex)
 finally
 {
     await Log.CloseAndFlushAsync();
+}
+
+public sealed class DateOnlyJsonConverter : JsonConverter<DateOnly>
+{
+    private const string Format = "yyyy-MM-dd";
+    public override DateOnly Read(ref System.Text.Json.Utf8JsonReader reader, Type typeToConvert, System.Text.Json.JsonSerializerOptions options)
+        => DateOnly.Parse(reader.GetString()!);
+
+    public override void Write(System.Text.Json.Utf8JsonWriter writer, DateOnly value, System.Text.Json.JsonSerializerOptions options)
+        => writer.WriteStringValue(value.ToString(Format));
 }

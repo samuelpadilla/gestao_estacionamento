@@ -2,7 +2,7 @@
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Metadata.Builders;
 
-namespace GEST.Infrastructure.Data.Configurations;
+namespace GEST.Infrastructure.Persistence.Configurations;
 
 public class VehicleConfiguration : IEntityTypeConfiguration<Vehicle>
 {

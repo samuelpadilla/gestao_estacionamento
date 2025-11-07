@@ -1,11 +1,11 @@
 ﻿using GEST.Domain.Entities;
 using Microsoft.EntityFrameworkCore;
 
-namespace GEST.Infrastructure.Data;
+namespace GEST.Infrastructure.Persistence;
 
-public partial class GestContext : DbContext
+public partial class GestDbContext : DbContext
 {
-    public GestContext(DbContextOptions<GestContext> options)
+    public GestDbContext(DbContextOptions<GestDbContext> options)
         : base(options)
     {
     }
@@ -20,7 +20,7 @@ public partial class GestContext : DbContext
     {
         modelBuilder.UseCollation("Latin1_General_CI_AS");
 
-        modelBuilder.ApplyConfigurationsFromAssembly(typeof(GestContext).Assembly);
+        modelBuilder.ApplyConfigurationsFromAssembly(typeof(GestDbContext).Assembly);
 
         OnModelCreatingPartial(modelBuilder);
     }

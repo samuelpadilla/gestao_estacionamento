@@ -1,5 +1,4 @@
 ﻿using GEST.Domain.Abstractions;
-using GEST.Infrastructure.Data;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Storage;
 using System.Data;
@@ -8,10 +7,10 @@ namespace GEST.Infrastructure.Persistence;
 
 public class UnitOfWork : IUnitOfWork
 {
-    private readonly GestContext _db;
+    private readonly GestDbContext _db;
     private IDbContextTransaction? _currentTx;
 
-    public UnitOfWork(GestContext db) => _db = db;
+    public UnitOfWork(GestDbContext db) => _db = db;
 
     public async Task<int> SaveChangesAsync(CancellationToken ct = default)
         => await _db.SaveChangesAsync(ct);
