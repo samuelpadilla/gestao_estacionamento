@@ -21,7 +21,6 @@
   </ItemGroup>
 
   <ItemGroup>
-    <ProjectReference Include="..\GEST.Aplicacao\GEST.Application.csproj" />
     <ProjectReference Include="..\GEST.Application\GEST.Application.csproj" />
     <ProjectReference Include="..\GEST.Infrastructure\GEST.Infrastructure.csproj" />
   </ItemGroup>
