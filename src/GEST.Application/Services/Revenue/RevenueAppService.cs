@@ -17,6 +17,7 @@ public sealed class RevenueAppService : IRevenueAppService
     public async Task<RevenueResponseDto> GetRevenueAsync(RevenueRequestDto request, CancellationToken ct)
     {
         var amount = await _sessions.SumRevenueAsync(request.Sector, request.Date, ct);
+
         return new RevenueResponseDto
         {
             Amount = decimal.Round(amount, 2, MidpointRounding.AwayFromZero),

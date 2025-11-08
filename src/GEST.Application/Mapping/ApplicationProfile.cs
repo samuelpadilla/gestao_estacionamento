@@ -11,13 +11,15 @@ public sealed class ApplicationProfile : Profile
         CreateMap<GarageSectorDto, Sector>()
             .ForMember(d => d.Code, m => m.MapFrom(s => s.Sector))
             .ForMember(d => d.BasePrice, m => m.MapFrom(s => s.BasePrice))
-            .ForMember(d => d.MaxCapacity, m => m.MapFrom(s => s.Max_Capacity));
+            .ForMember(d => d.MaxCapacity, m => m.MapFrom(s => s.Max_Capacity))
+            .ReverseMap();
 
         CreateMap<GarageSpotDto, Spot>()
             .ForMember(d => d.SectorCode, m => m.MapFrom(s => s.Sector))
             .ForMember(d => d.IsOccupied, m => m.Ignore())
             .ForMember(d => d.CurrentLicensePlate, m => m.Ignore())
             .ForMember(d => d.ParkingSessions, m => m.Ignore())
-            .ForMember(d => d.Sector, m => m.Ignore());
+            .ForMember(d => d.Sector, m => m.Ignore())
+            .ReverseMap();
     }
 }

@@ -12,7 +12,7 @@ public sealed class ParkingSessionRepository(GestDbContext db) : IParkingSession
     public async Task<ParkingSession?> GetActiveByPlateAsync(string licensePlate, CancellationToken ct)
         => await _db.ParkingSessions
             .FirstOrDefaultAsync(s => s.LicensePlate == licensePlate && s.Status == ParkingStatus.Active, ct);
-
+     
     public async Task AddAsync(ParkingSession session, CancellationToken ct)
         => await _db.ParkingSessions.AddAsync(session, ct);
 

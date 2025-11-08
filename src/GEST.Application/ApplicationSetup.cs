@@ -21,7 +21,7 @@ public static class ApplicationSetup
         services.AddValidatorsFromAssembly(typeof(ApplicationSetup).Assembly);
 
         // Services
-        services.AddScoped<IGarageSyncAppService, GarageSyncAppService>();
+        services.AddScoped<IGarageAppService, GarageAppService>();
         services.AddScoped<IParkingAppService, ParkingAppService>();
         services.AddScoped<IRevenueAppService, RevenueAppService>();
         services.AddSingleton<ITimeProvider, SystemTimeProvider>();

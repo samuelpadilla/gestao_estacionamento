@@ -8,6 +8,9 @@ public sealed class SpotRepository(GestDbContext db) : ISpotRepository
 {
     private readonly GestDbContext _db = db;
 
+    public async Task<IEnumerable<Spot>> GetAllAsync(CancellationToken ct)
+        => await _db.Spots.AsNoTracking().ToListAsync(ct);
+
     public async Task<int> CountOccupiedAsync(string sectorCode, CancellationToken ct)
         => await _db.Spots.CountAsync(s => s.SectorCode == sectorCode && s.IsOccupied, ct);
 

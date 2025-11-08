@@ -8,21 +8,34 @@ public sealed class GestDbContextFactory : IDesignTimeDbContextFactory<GestDbCon
 {
     public GestDbContext CreateDbContext(string[] args)
     {
-        // descobre o diretório da API para ler o appsettings (ajuste se seu path for diferente)
-        var basePath = Path.Combine(Directory.GetCurrentDirectory(), "..", "GEST.Api");
+        var env = Environment.GetEnvironmentVariable("ASPNETCORE_ENVIRONMENT") ?? "Production";
+                
+        var apiPath = Path.GetFullPath(Path.Combine(Directory.GetCurrentDirectory(), "..", "GEST.Api"));
+        Console.WriteLine($"[GestDbContextFactory] Base path for configuration: {apiPath}");
 
-        var config = new ConfigurationBuilder()
-            .SetBasePath(basePath)
-            .AddJsonFile("appsettings.json", optional: false)
-            .AddJsonFile("appsettings.Development.json", optional: true)
-            .AddEnvironmentVariables()
-            .Build();
 
-        var cs = config.GetConnectionString("SqlServer")
-                 ?? "Server=localhost;Database=GestDb;Trusted_Connection=True;TrustServerCertificate=True;";
+        var cfgBuilder = new ConfigurationBuilder();
+
+        if (Directory.Exists(apiPath))
+        {
+            cfgBuilder.SetBasePath(apiPath)
+                      .AddJsonFile("appsettings.json", optional: true)
+                      .AddJsonFile($"appsettings.{env}.json", optional: true);
+        }
+
+        cfgBuilder.AddEnvironmentVariables();
+        if (env.Equals("Development", StringComparison.OrdinalIgnoreCase))
+            cfgBuilder.AddUserSecrets<GestDbContextFactory>(optional: true);
+
+        var config = cfgBuilder.Build();
+
+        var connectionString = config.GetConnectionString("ConnGest")
+                               ?? "Server=localhost;Database=GestDb;Trusted_Connection=True;TrustServerCertificate=True;";
+
+        Console.WriteLine($"[GestDbContextFactory] Using connection string: {connectionString}");
 
         var options = new DbContextOptionsBuilder<GestDbContext>()
-            .UseSqlServer(cs)
+            .UseSqlServer(connectionString)
             .Options;
 
         return new GestDbContext(options);

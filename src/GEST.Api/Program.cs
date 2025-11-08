@@ -1,6 +1,7 @@
 using GEST.Api.Endpoints;
 using GEST.Api.HostedServices;
 using GEST.Application;
+using GEST.Infrastructure.Persistence;
 using GEST.Infrastructure.Setup;
 using Serilog;
 using Serilog.Debugging;
@@ -45,7 +46,6 @@ try
           .WriteTo.File("logs/app-.log", rollingInterval: RollingInterval.Day, retainedFileCountLimit: 14, shared: true);
     });
 
-
     services.AddCors(o => o.AddDefaultPolicy(p => p.AllowAnyOrigin().AllowAnyHeader().AllowAnyMethod()));
 
     services.AddProblemDetails(); services.ConfigureHttpJsonOptions(o =>
@@ -87,6 +87,8 @@ try
     app.UseCors();
 
     app.MapGestEndpoints();
+
+    await SeedData.InitializeAsync(app.Services);
 
     Log.Information("API iniciando Kestrel...");
     await app.RunAsync();
