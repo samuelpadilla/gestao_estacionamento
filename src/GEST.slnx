@@ -11,4 +11,7 @@
   <Folder Name="/4 - Infrastructure/">
     <Project Path="GEST.Infrastructure/GEST.Infrastructure.csproj" Id="655681ba-9c07-4541-aa64-7166428c9441" />
   </Folder>
+  <Folder Name="/5 - Simulador/">
+    <Project Path="Gest.Simulador/Gest.Simulador.csproj" Id="05c9b8ad-4535-4eb4-befc-9d52072656e7" />
+  </Folder>
 </Solution>

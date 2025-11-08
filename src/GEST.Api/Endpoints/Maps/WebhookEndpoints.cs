@@ -1,7 +1,6 @@
 ﻿using FluentValidation;
 using GEST.Application.Dtos.Webhook;
 using GEST.Application.Services.Parking;
-using Microsoft.AspNetCore.Mvc;
 using System.Text.Json;
 
 namespace GEST.Api.Endpoints.Garage;
@@ -39,7 +38,9 @@ public static class WebhookEndpoints
                         {
                             var dto = raw.Deserialize<EntryEventDto>(jsonOptions)!;
                             var val = await entryValidator.ValidateAsync(dto, ct);
-                            if (!val.IsValid) return Results.ValidationProblem(val.ToDictionary());
+
+                            if (!val.IsValid) 
+                                return Results.ValidationProblem(val.ToDictionary());
 
                             await parking.HandleEntryAsync(dto, ct);
                             return Results.Ok();

@@ -21,9 +21,9 @@ public static class SeedData
             {
                 var sectors = new List<Sector>
                 {
-                    new() { Code = "A", BasePrice = 10m, MaxCapacity = 100 },
-                    new() { Code = "B", BasePrice = 8m,  MaxCapacity = 80 },
-                    new() { Code = "C", BasePrice = 12m, MaxCapacity = 50 },
+                    new() { Code = "A", BasePrice = 10m, MaxCapacity = 10 },
+                    new() { Code = "B", BasePrice = 8m,  MaxCapacity = 20 },
+                    new() { Code = "C", BasePrice = 12m, MaxCapacity = 30 },
                 };
 
                 await db.Sectors.AddRangeAsync(sectors);
