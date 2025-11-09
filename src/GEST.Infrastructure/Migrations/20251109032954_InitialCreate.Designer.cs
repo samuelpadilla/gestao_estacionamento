@@ -12,7 +12,7 @@ using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 namespace GEST.Infrastructure.Migrations
 {
     [DbContext(typeof(GestDbContext))]
-    [Migration("20251107061026_InitialCreate")]
+    [Migration("20251109032954_InitialCreate")]
     partial class InitialCreate
     {
         /// <inheritdoc />
@@ -42,10 +42,8 @@ namespace GEST.Infrastructure.Migrations
                     b.Property<DateTime?>("ExitTimeUtc")
                         .HasColumnType("datetime2");
 
-                    b.Property<string>("LicensePlate")
-                        .IsRequired()
-                        .HasMaxLength(12)
-                        .HasColumnType("nvarchar(12)");
+                    b.Property<decimal>("Multiplier")
+                        .HasColumnType("decimal(18,2)");
 
                     b.Property<DateTime?>("ParkedTimeUtc")
                         .HasColumnType("datetime2");
@@ -53,10 +51,8 @@ namespace GEST.Infrastructure.Migrations
                     b.Property<int>("PricingTier")
                         .HasColumnType("int");
 
-                    b.Property<string>("SectorCode")
-                        .IsRequired()
-                        .HasMaxLength(10)
-                        .HasColumnType("nvarchar(10)");
+                    b.Property<int?>("SectorId")
+                        .HasColumnType("int");
 
                     b.Property<int?>("SpotId")
                         .HasColumnType("int");
@@ -68,32 +64,45 @@ namespace GEST.Infrastructure.Migrations
                         .HasPrecision(12, 2)
                         .HasColumnType("decimal(12,2)");
 
-                    b.HasKey("Id");
+                    b.Property<int>("VehicleId")
+                        .HasColumnType("int");
+
+                    b.HasKey("Id")
+                        .HasName("PK_ParkingSession");
 
                     b.HasIndex("SpotId");
 
-                    b.HasIndex("LicensePlate", "Status")
-                        .HasDatabaseName("IX_Session_ActiveByPlate");
+                    b.HasIndex("SectorId", "ExitTimeUtc")
+                        .HasDatabaseName("IX_Session_BySector_ExitTime");
 
-                    b.HasIndex("SectorCode", "ExitTimeUtc");
+                    b.HasIndex("VehicleId", "Status")
+                        .HasDatabaseName("IX_Session_ByVehicle_Status");
 
                     b.ToTable("ParkingSessions", (string)null);
                 });
 
             modelBuilder.Entity("GEST.Domain.Entities.Sector", b =>
                 {
-                    b.Property<string>("Code")
-                        .HasMaxLength(10)
-                        .HasColumnType("nvarchar(10)");
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
 
                     b.Property<decimal>("BasePrice")
                         .HasPrecision(10, 2)
                         .HasColumnType("decimal(10,2)");
 
+                    b.Property<string>("Code")
+                        .IsRequired()
+                        .HasMaxLength(10)
+                        .HasColumnType("nvarchar(10)");
+
                     b.Property<int>("MaxCapacity")
                         .HasColumnType("int");
 
-                    b.HasKey("Code");
+                    b.HasKey("Id")
+                        .HasName("PK_Sector");
 
                     b.ToTable("Sectors", (string)null);
                 });
@@ -125,30 +134,40 @@ namespace GEST.Infrastructure.Migrations
                         .ValueGeneratedOnAddOrUpdate()
                         .HasColumnType("rowversion");
 
-                    b.Property<string>("SectorCode")
-                        .IsRequired()
-                        .HasMaxLength(10)
-                        .HasColumnType("nvarchar(10)");
+                    b.Property<int>("SectorId")
+                        .HasColumnType("int");
 
-                    b.HasKey("Id");
+                    b.HasKey("Id")
+                        .HasName("PK_Spot");
 
-                    b.HasIndex("SectorCode");
+                    b.HasIndex("SectorId")
+                        .HasDatabaseName("IX_Spot_BySector");
 
-                    b.HasIndex("SectorCode", "IsOccupied");
+                    b.HasIndex("SectorId", "IsOccupied")
+                        .HasDatabaseName("IX_Spot_BySector_IsOccupied");
 
                     b.ToTable("Spots", (string)null);
                 });
 
             modelBuilder.Entity("GEST.Domain.Entities.Vehicle", b =>
                 {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
                     b.Property<string>("LicensePlate")
+                        .IsRequired()
                         .HasMaxLength(12)
                         .HasColumnType("nvarchar(12)");
 
-                    b.HasKey("LicensePlate");
+                    b.HasKey("Id")
+                        .HasName("PK_Vehicle");
 
                     b.HasIndex("LicensePlate")
-                        .IsUnique();
+                        .IsUnique()
+                        .HasDatabaseName("IX_Vehicle_ByLicensePlate");
 
                     b.ToTable("Vehicles", (string)null);
                 });
@@ -190,29 +209,32 @@ namespace GEST.Infrastructure.Migrations
 
                     b.HasKey("Id");
 
-                    b.HasIndex("LicensePlate", "ReceivedAtUtc");
+                    b.HasIndex("LicensePlate", "ReceivedAtUtc")
+                        .HasDatabaseName("IX_WebhookEventLog_ByLicensePlate_ReceivedAt");
 
                     b.ToTable("WebhookEventLogs", (string)null);
                 });
 
             modelBuilder.Entity("GEST.Domain.Entities.ParkingSession", b =>
                 {
-                    b.HasOne("GEST.Domain.Entities.Vehicle", "Vehicle")
-                        .WithMany("ParkingSessions")
-                        .HasForeignKey("LicensePlate")
-                        .OnDelete(DeleteBehavior.Restrict)
-                        .IsRequired();
-
                     b.HasOne("GEST.Domain.Entities.Sector", "Sector")
-                        .WithMany()
-                        .HasForeignKey("SectorCode")
+                        .WithMany("ParkingSessions")
+                        .HasForeignKey("SectorId")
                         .OnDelete(DeleteBehavior.Restrict)
-                        .IsRequired();
+                        .HasConstraintName("FK_Sector_ParkingSession");
 
                     b.HasOne("GEST.Domain.Entities.Spot", "Spot")
                         .WithMany("ParkingSessions")
                         .HasForeignKey("SpotId")
-                        .OnDelete(DeleteBehavior.SetNull);
+                        .OnDelete(DeleteBehavior.SetNull)
+                        .HasConstraintName("FK_Spot_ParkingSession");
+
+                    b.HasOne("GEST.Domain.Entities.Vehicle", "Vehicle")
+                        .WithMany("ParkingSessions")
+                        .HasForeignKey("VehicleId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired()
+                        .HasConstraintName("FK_Vehicle_ParkingSession");
 
                     b.Navigation("Sector");
 
@@ -225,15 +247,18 @@ namespace GEST.Infrastructure.Migrations
                 {
                     b.HasOne("GEST.Domain.Entities.Sector", "Sector")
                         .WithMany("Spots")
-                        .HasForeignKey("SectorCode")
+                        .HasForeignKey("SectorId")
                         .OnDelete(DeleteBehavior.Restrict)
-                        .IsRequired();
+                        .IsRequired()
+                        .HasConstraintName("FK_Sector_Spot");
 
                     b.Navigation("Sector");
                 });
 
             modelBuilder.Entity("GEST.Domain.Entities.Sector", b =>
                 {
+                    b.Navigation("ParkingSessions");
+
                     b.Navigation("Spots");
                 });
 

@@ -4,19 +4,22 @@ using Microsoft.EntityFrameworkCore;
 
 namespace GEST.Infrastructure.Persistence.Repositories;
 
-public sealed class SpotRepository(GestDbContext db) : ISpotRepository
+public sealed class SpotRepository(
+    GestDbContext db
+    ) : BaseRepository<Spot>(db), ISpotRepository
 {
-    private readonly GestDbContext _db = db;
+    public async Task<int> CountAllAsync(CancellationToken ct)
+        => await db.Spots.CountAsync(ct);
 
-    public async Task<IEnumerable<Spot>> GetAllAsync(CancellationToken ct)
-        => await _db.Spots.AsNoTracking().ToListAsync(ct);
+    public async Task<int> CountAvailableAsync(CancellationToken ct)
+        => await db.Spots.CountAsync(s => !s.IsOccupied, ct);
 
-    public async Task<int> CountOccupiedAsync(string sectorCode, CancellationToken ct)
-        => await _db.Spots.CountAsync(s => s.SectorCode == sectorCode && s.IsOccupied, ct);
+    public async Task<int> CountOccupiedBySectorIdAsync(int sectorId, CancellationToken ct)
+        => await db.Spots.CountAsync(s => s.SectorId == sectorId && s.IsOccupied, ct);
 
     public async Task UpsertAsync(IEnumerable<Spot> spots, CancellationToken ct)
     {
-        var set = _db.Spots;
+        var set = db.Spots;
         foreach (var spot in spots)
         {
             var existing = await set.FirstOrDefaultAsync(x => x.Id == spot.Id, ct);
@@ -26,7 +29,7 @@ public sealed class SpotRepository(GestDbContext db) : ISpotRepository
             }
             else
             {
-                existing.SectorCode = spot.SectorCode;
+                existing.SectorId = spot.SectorId;
                 existing.Lat = spot.Lat;
                 existing.Lng = spot.Lng;
                 // IsOccupied/CurrentLicensePlate são atualizados por eventos
@@ -34,25 +37,23 @@ public sealed class SpotRepository(GestDbContext db) : ISpotRepository
         }
     }
 
-    public async Task<Spot?> FindByGeoAsync(string sectorCode, double lat, double lng, CancellationToken ct)
-        => await _db.Spots
+    public async Task<Spot?> FindByGeoAsync(double lat, double lng, CancellationToken ct)
+        => await db.Spots
             .AsNoTracking()
-            .Where(s => s.SectorCode == sectorCode)
-            .OrderBy(s => Math.Abs(s.Lat - lat) + Math.Abs(s.Lng - lng)) // heurística simples
+            .Where(s => s.Lat == lat && s.Lng == lng)
             .FirstOrDefaultAsync(ct);
 
     public async Task SetOccupiedAsync(int spotId, string licensePlate, CancellationToken ct)
     {
-        var spot = await _db.Spots.FirstOrDefaultAsync(s => s.Id == spotId, ct)
+        var spot = await db.Spots.FirstOrDefaultAsync(s => s.Id == spotId, ct)
                    ?? throw new InvalidOperationException("Vaga não encontrada.");
         spot.IsOccupied = true;
         spot.CurrentLicensePlate = licensePlate;
-        // RowVersion resolverá concorrência caso configurado nas entidades
     }
 
     public async Task FreeAsync(int spotId, CancellationToken ct)
     {
-        var spot = await _db.Spots.FirstOrDefaultAsync(s => s.Id == spotId, ct)
+        var spot = await db.Spots.FirstOrDefaultAsync(s => s.Id == spotId, ct)
                    ?? throw new InvalidOperationException("Vaga não encontrada.");
         spot.IsOccupied = false;
         spot.CurrentLicensePlate = null;

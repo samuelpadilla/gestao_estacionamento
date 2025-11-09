@@ -44,7 +44,7 @@ public sealed class GarageAppService(
 
         foreach (var sector in sectors)
         {
-            var sectorSpots = spots.Where(s => s.SectorCode == sector.Code).ToList();
+            var sectorSpots = spots.Where(s => s.Sector.Code == sector.Code).ToList();
 
             var occupiedSpots = sectorSpots.Count(s => s.IsOccupied);
 

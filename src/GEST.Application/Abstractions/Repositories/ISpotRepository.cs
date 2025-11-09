@@ -2,12 +2,13 @@
 
 namespace GEST.Application.Abstractions.Repositories;
 
-public interface ISpotRepository
+public interface ISpotRepository : IBaseRepository<Spot>
 {
-    Task<IEnumerable<Spot>> GetAllAsync(CancellationToken ct);
-    Task<int> CountOccupiedAsync(string sectorCode, CancellationToken ct);
+    Task<int> CountAllAsync(CancellationToken ct);
+    Task<int> CountAvailableAsync(CancellationToken ct);
+    Task<int> CountOccupiedBySectorIdAsync(int sectorId, CancellationToken ct);
     Task UpsertAsync(IEnumerable<Spot> spots, CancellationToken ct);
-    Task<Spot?> FindByGeoAsync(string sectorCode, double lat, double lng, CancellationToken ct);
+    Task<Spot?> FindByGeoAsync(double lat, double lng, CancellationToken ct);
     Task SetOccupiedAsync(int spotId, string licensePlate, CancellationToken ct);
     Task FreeAsync(int spotId, CancellationToken ct);
 }

@@ -15,24 +15,28 @@ namespace GEST.Infrastructure.Migrations
                 name: "Sectors",
                 columns: table => new
                 {
+                    Id = table.Column<int>(type: "int", nullable: false)
+                        .Annotation("SqlServer:Identity", "1, 1"),
                     Code = table.Column<string>(type: "nvarchar(10)", maxLength: 10, nullable: false),
                     BasePrice = table.Column<decimal>(type: "decimal(10,2)", precision: 10, scale: 2, nullable: false),
                     MaxCapacity = table.Column<int>(type: "int", nullable: false)
                 },
                 constraints: table =>
                 {
-                    table.PrimaryKey("PK_Sectors", x => x.Code);
+                    table.PrimaryKey("PK_Sector", x => x.Id);
                 });
 
             migrationBuilder.CreateTable(
                 name: "Vehicles",
                 columns: table => new
                 {
+                    Id = table.Column<int>(type: "int", nullable: false)
+                        .Annotation("SqlServer:Identity", "1, 1"),
                     LicensePlate = table.Column<string>(type: "nvarchar(12)", maxLength: 12, nullable: false)
                 },
                 constraints: table =>
                 {
-                    table.PrimaryKey("PK_Vehicles", x => x.LicensePlate);
+                    table.PrimaryKey("PK_Vehicle", x => x.Id);
                 });
 
             migrationBuilder.CreateTable(
@@ -61,7 +65,7 @@ namespace GEST.Infrastructure.Migrations
                 {
                     Id = table.Column<int>(type: "int", nullable: false)
                         .Annotation("SqlServer:Identity", "1, 1"),
-                    SectorCode = table.Column<string>(type: "nvarchar(10)", maxLength: 10, nullable: false),
+                    SectorId = table.Column<int>(type: "int", nullable: false),
                     Lat = table.Column<double>(type: "float", nullable: false),
                     Lng = table.Column<double>(type: "float", nullable: false),
                     IsOccupied = table.Column<bool>(type: "bit", nullable: false),
@@ -70,12 +74,12 @@ namespace GEST.Infrastructure.Migrations
                 },
                 constraints: table =>
                 {
-                    table.PrimaryKey("PK_Spots", x => x.Id);
+                    table.PrimaryKey("PK_Spot", x => x.Id);
                     table.ForeignKey(
-                        name: "FK_Spots_Sectors_SectorCode",
-                        column: x => x.SectorCode,
+                        name: "FK_Sector_Spot",
+                        column: x => x.SectorId,
                         principalTable: "Sectors",
-                        principalColumn: "Code",
+                        principalColumn: "Id",
                         onDelete: ReferentialAction.Restrict);
                 });
 
@@ -84,44 +88,40 @@ namespace GEST.Infrastructure.Migrations
                 columns: table => new
                 {
                     Id = table.Column<Guid>(type: "uniqueidentifier", nullable: false),
-                    LicensePlate = table.Column<string>(type: "nvarchar(12)", maxLength: 12, nullable: false),
+                    SectorId = table.Column<int>(type: "int", nullable: true),
                     SpotId = table.Column<int>(type: "int", nullable: true),
-                    SectorCode = table.Column<string>(type: "nvarchar(10)", maxLength: 10, nullable: false),
+                    VehicleId = table.Column<int>(type: "int", nullable: false),
                     EntryTimeUtc = table.Column<DateTime>(type: "datetime2", nullable: false),
                     ParkedTimeUtc = table.Column<DateTime>(type: "datetime2", nullable: true),
                     ExitTimeUtc = table.Column<DateTime>(type: "datetime2", nullable: true),
-                    AppliedPricePerHour = table.Column<decimal>(type: "decimal(10,2)", precision: 10, scale: 2, nullable: false),
+                    Multiplier = table.Column<decimal>(type: "decimal(18,2)", nullable: false),
                     PricingTier = table.Column<int>(type: "int", nullable: false),
+                    AppliedPricePerHour = table.Column<decimal>(type: "decimal(10,2)", precision: 10, scale: 2, nullable: false),
                     TotalAmount = table.Column<decimal>(type: "decimal(12,2)", precision: 12, scale: 2, nullable: true),
                     Status = table.Column<int>(type: "int", nullable: false)
                 },
                 constraints: table =>
                 {
-                    table.PrimaryKey("PK_ParkingSessions", x => x.Id);
+                    table.PrimaryKey("PK_ParkingSession", x => x.Id);
                     table.ForeignKey(
-                        name: "FK_ParkingSessions_Sectors_SectorCode",
-                        column: x => x.SectorCode,
+                        name: "FK_Sector_ParkingSession",
+                        column: x => x.SectorId,
                         principalTable: "Sectors",
-                        principalColumn: "Code",
+                        principalColumn: "Id",
                         onDelete: ReferentialAction.Restrict);
                     table.ForeignKey(
-                        name: "FK_ParkingSessions_Spots_SpotId",
+                        name: "FK_Spot_ParkingSession",
                         column: x => x.SpotId,
                         principalTable: "Spots",
                         principalColumn: "Id",
                         onDelete: ReferentialAction.SetNull);
                     table.ForeignKey(
-                        name: "FK_ParkingSessions_Vehicles_LicensePlate",
-                        column: x => x.LicensePlate,
+                        name: "FK_Vehicle_ParkingSession",
+                        column: x => x.VehicleId,
                         principalTable: "Vehicles",
-                        principalColumn: "LicensePlate",
+                        principalColumn: "Id",
                         onDelete: ReferentialAction.Restrict);
                 });
-
-            migrationBuilder.CreateIndex(
-                name: "IX_ParkingSessions_SectorCode_ExitTimeUtc",
-                table: "ParkingSessions",
-                columns: new[] { "SectorCode", "ExitTimeUtc" });
 
             migrationBuilder.CreateIndex(
                 name: "IX_ParkingSessions_SpotId",
@@ -129,28 +129,33 @@ namespace GEST.Infrastructure.Migrations
                 column: "SpotId");
 
             migrationBuilder.CreateIndex(
-                name: "IX_Session_ActiveByPlate",
+                name: "IX_Session_BySector_ExitTime",
                 table: "ParkingSessions",
-                columns: new[] { "LicensePlate", "Status" });
+                columns: new[] { "SectorId", "ExitTimeUtc" });
 
             migrationBuilder.CreateIndex(
-                name: "IX_Spots_SectorCode",
+                name: "IX_Session_ByVehicle_Status",
+                table: "ParkingSessions",
+                columns: new[] { "VehicleId", "Status" });
+
+            migrationBuilder.CreateIndex(
+                name: "IX_Spot_BySector",
                 table: "Spots",
-                column: "SectorCode");
+                column: "SectorId");
 
             migrationBuilder.CreateIndex(
-                name: "IX_Spots_SectorCode_IsOccupied",
+                name: "IX_Spot_BySector_IsOccupied",
                 table: "Spots",
-                columns: new[] { "SectorCode", "IsOccupied" });
+                columns: new[] { "SectorId", "IsOccupied" });
 
             migrationBuilder.CreateIndex(
-                name: "IX_Vehicles_LicensePlate",
+                name: "IX_Vehicle_ByLicensePlate",
                 table: "Vehicles",
                 column: "LicensePlate",
                 unique: true);
 
             migrationBuilder.CreateIndex(
-                name: "IX_WebhookEventLogs_LicensePlate_ReceivedAtUtc",
+                name: "IX_WebhookEventLog_ByLicensePlate_ReceivedAt",
                 table: "WebhookEventLogs",
                 columns: new[] { "LicensePlate", "ReceivedAtUtc" });
         }

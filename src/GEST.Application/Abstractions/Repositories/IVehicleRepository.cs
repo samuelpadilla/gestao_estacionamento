@@ -2,8 +2,7 @@
 
 namespace GEST.Application.Abstractions.Repositories;
 
-public interface IVehicleRepository
+public interface IVehicleRepository : IBaseRepository<Vehicle>
 {
-    Task<Vehicle?> GetAsync(string licensePlate, CancellationToken ct);
-    Task EnsureAsync(string licensePlate, CancellationToken ct);
+    Task<Vehicle?> GetByLicensePlateAsync(string licensePlate, CancellationToken ct);
 }

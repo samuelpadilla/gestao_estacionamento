@@ -2,10 +2,10 @@
 
 namespace GEST.Application.Abstractions.Repositories;
 
-public interface IParkingSessionRepository
+public interface IParkingSessionRepository : IBaseRepository<ParkingSession>
 {
+    Task<int> CountActiveAsync(CancellationToken ct);
     Task<ParkingSession?> GetActiveByPlateAsync(string licensePlate, CancellationToken ct);
-    Task AddAsync(ParkingSession session, CancellationToken ct);
     Task CloseAsync(Guid sessionId, DateTime exitUtc, decimal totalAmount, CancellationToken ct);
-    Task<decimal> SumRevenueAsync(string sectorCode, DateOnly dateUtc, CancellationToken ct);
+    Task<decimal> SumRevenueAsync(int sectorId, DateOnly dateUtc, CancellationToken ct);
 }

@@ -26,6 +26,8 @@ public class WebhookEventLogConfiguration : IEntityTypeConfiguration<WebhookEven
                .HasColumnType("nvarchar(max)")
                .IsRequired();
 
-        builder.HasIndex(x => new { x.LicensePlate, x.ReceivedAtUtc });
+        builder
+            .HasIndex(x => new { x.LicensePlate, x.ReceivedAtUtc })
+            .HasDatabaseName("IX_WebhookEventLog_ByLicensePlate_ReceivedAt");
     }
 }

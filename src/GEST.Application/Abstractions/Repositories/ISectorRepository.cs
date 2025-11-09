@@ -2,11 +2,9 @@
 
 namespace GEST.Application.Abstractions.Repositories;
 
-public interface ISectorRepository
+public interface ISectorRepository : IBaseRepository<Sector>
 {
     Task<Sector?> GetAsync(string code, CancellationToken ct);
-
-    Task<IEnumerable<Sector>> GetAllAsync(CancellationToken ct);
 
     Task UpsertAsync(IEnumerable<Sector> sectors, CancellationToken ct);
 }

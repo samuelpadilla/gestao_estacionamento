@@ -8,15 +8,20 @@ public interface IRevenueAppService
     Task<RevenueResponseDto> GetRevenueAsync(RevenueRequestDto request, CancellationToken ct);
 }
 
-public sealed class RevenueAppService : IRevenueAppService
+public sealed class RevenueAppService(
+    ISectorRepository sectorRepo,
+    IParkingSessionRepository sessionRepo
+    ) : IRevenueAppService
 {
-    private readonly IParkingSessionRepository _sessions;
-
-    public RevenueAppService(IParkingSessionRepository sessions) => _sessions = sessions;
-
-    public async Task<RevenueResponseDto> GetRevenueAsync(RevenueRequestDto request, CancellationToken ct)
+    public async Task<RevenueResponseDto> GetRevenueAsync(
+        RevenueRequestDto request, 
+        CancellationToken ct
+        )
     {
-        var amount = await _sessions.SumRevenueAsync(request.Sector, request.Date, ct);
+        var sector = await sectorRepo.GetAsync(request.Sector, ct)
+                     ?? throw new InvalidOperationException("Setor não encontrado.");
+
+        var amount = await sessionRepo.SumRevenueAsync(sector.Id, request.Date, ct);
 
         return new RevenueResponseDto
         {

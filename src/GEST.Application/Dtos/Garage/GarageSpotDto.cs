@@ -3,7 +3,7 @@
 public sealed class GarageSpotDto
 {
     public int Id { get; set; }
-    public string Sector { get; set; } = default!;
+    public string SectorCode { get; set; }
     public double Lat { get; set; }
     public double Lng { get; set; }
 }

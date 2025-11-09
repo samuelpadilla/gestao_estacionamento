@@ -9,7 +9,9 @@ public class VehicleConfiguration : IEntityTypeConfiguration<Vehicle>
     public void Configure(EntityTypeBuilder<Vehicle> builder)
     {
         builder.ToTable("Vehicles");
-        builder.HasKey(x => x.LicensePlate);
+
+        builder.HasKey(x => x.Id)
+            .HasName("PK_Vehicle");
 
         builder.Property(x => x.LicensePlate)
                .HasMaxLength(12)
@@ -17,9 +19,12 @@ public class VehicleConfiguration : IEntityTypeConfiguration<Vehicle>
 
         builder.HasMany(x => x.ParkingSessions)
                .WithOne(s => s.Vehicle)
-               .HasForeignKey(s => s.LicensePlate)
-               .OnDelete(DeleteBehavior.Restrict);
+               .HasForeignKey(s => s.VehicleId)
+               .OnDelete(DeleteBehavior.Restrict)
+               .HasConstraintName("FK_Vehicle_ParkingSession");
 
-        builder.HasIndex(x => x.LicensePlate).IsUnique();
+        builder.HasIndex(x => x.LicensePlate)
+            .IsUnique()
+            .HasDatabaseName("IX_Vehicle_ByLicensePlate");
     }
 }

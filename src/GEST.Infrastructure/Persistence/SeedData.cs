@@ -53,7 +53,7 @@ public static class SeedData
 
                         spots.Add(new Spot
                         {
-                            SectorCode = sector.Code,
+                            SectorId = sector.Id,
                             Lat = Math.Round(lat, 6),
                             Lng = Math.Round(lng, 6),
                             IsOccupied = false

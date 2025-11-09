@@ -37,6 +37,7 @@ public static class InfrastructureSetup
             client.DefaultRequestHeaders.Accept.Add(new MediaTypeWithQualityHeaderValue("application/json"));
         });
 
+        services.AddScoped(typeof(IBaseRepository<>), typeof(BaseRepository<>));
         services.AddScoped<ISectorRepository, SectorRepository>();
         services.AddScoped<ISpotRepository, SpotRepository>();
         services.AddScoped<IVehicleRepository, VehicleRepository>();

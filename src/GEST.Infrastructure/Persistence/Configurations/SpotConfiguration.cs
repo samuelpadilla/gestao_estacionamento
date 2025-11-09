@@ -10,32 +10,42 @@ public class SpotConfiguration : IEntityTypeConfiguration<Spot>
     {
         builder.ToTable("Spots");
 
-        builder.HasKey(x => x.Id);
+        builder.HasKey(x => x.Id)
+            .HasName("PK_Spot");
 
-        builder.Property(x => x.SectorCode)
-               .HasMaxLength(10)
-               .IsRequired();
+        builder
+            .Property(x => x.Lat)
+            .IsRequired();
 
-        builder.Property(x => x.Lat).IsRequired();
-        builder.Property(x => x.Lng).IsRequired();
+        builder
+            .Property(x => x.Lng)
+            .IsRequired();
 
-        builder.Property(x => x.IsOccupied).IsRequired();
+        builder
+            .Property(x => x.IsOccupied)
+            .IsRequired();
 
-        builder.Property(x => x.CurrentLicensePlate)
-               .HasMaxLength(12);
+        builder
+            .Property(x => x.CurrentLicensePlate)
+            .HasMaxLength(12);
 
-        builder.Property(x => x.RowVersion)
-               .IsRowVersion();
+        builder
+            .Property(x => x.RowVersion)
+            .IsRowVersion();
 
-        builder.HasIndex(x => new { x.SectorCode, x.IsOccupied });
+        builder
+            .HasIndex(x => new { x.SectorId, x.IsOccupied })
+            .HasDatabaseName("IX_Spot_BySector_IsOccupied");
 
-        // Otimiza “vagas por setor”
-        builder.HasIndex(x => x.SectorCode);
+        builder
+            .HasIndex(x => x.SectorId)
+            .HasDatabaseName("IX_Spot_BySector");
 
-        // Navegação
-        builder.HasMany(x => x.ParkingSessions)
-               .WithOne(s => s.Spot)
-               .HasForeignKey(s => s.SpotId)
-               .OnDelete(DeleteBehavior.SetNull);
+        builder
+            .HasMany(x => x.ParkingSessions)
+            .WithOne(s => s.Spot)
+            .HasForeignKey(s => s.SpotId)
+            .OnDelete(DeleteBehavior.SetNull)
+            .HasConstraintName("FK_Spot_ParkingSession");
     }
 }

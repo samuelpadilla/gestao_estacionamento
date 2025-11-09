@@ -29,7 +29,6 @@ public sealed class ParkingAppService(
     {
         await uow.ExecuteInTransactionAsync(async _ =>
         {
-            // log
             await logRepo.AddAsync(new WebhookEventLog
             {
                 EventType = WebhookEventType.ENTRY,
@@ -39,29 +38,32 @@ public sealed class ParkingAppService(
                 RawPayloadJson = System.Text.Json.JsonSerializer.Serialize(dto)
             }, ct);
 
-            // business
-            // Para ENTRY, vamos exigir setor (defina sua regra; aqui assumimos único setor quando só há um)
-            // Você pode inferir setor a partir da distribuição de vagas; para simplicidade, usamos o primeiro setor.
-            var sectorCandidates = new[] { "A" }; // adapte: injete configuração/lookup
-            var sector = await sectorRepo.GetAsync(sectorCandidates[0], ct)
-                         ?? throw new InvalidOperationException("Setor não encontrado.");
+            var totalSpot = await spotRepo.CountAllAsync(ct);
+            var totalParkingSessions = await sessionRepo.CountActiveAsync(ct);
+            var totalSpotAvaliable = totalSpot - totalParkingSessions;
 
-            var occupied = await spotRepo.CountOccupiedAsync(sector.Code, ct);
-            if (occupied >= sector.MaxCapacity)
+            if (totalSpotAvaliable == 0)
                 throw new InvalidOperationException("Estacionamento cheio. Entrada bloqueada.");
 
-            await vehicleRepo.EnsureAsync(dto.License_Plate, ct);
+            var vehicle = vehicleRepo.GetByLicensePlateAsync(dto.License_Plate, ct);
 
-            var (tier, price) = PricingHelper.DecideDynamicPrice(occupied, sector.MaxCapacity, sector.BasePrice);
+            if (vehicle is null)
+            {
+                await vehicleRepo.AddAsync(new Vehicle { LicensePlate = dto.License_Plate }, ct);
+                await uow.SaveChangesAsync(ct);
 
-            var session = new ParkingSession
+                vehicle = vehicleRepo.GetByLicensePlateAsync(dto.License_Plate, ct);
+            }
+
+            var (tier, multiplier) = PricingHelper.DecideDynamicPrice(totalSpotAvaliable, totalSpot);
+
+            ParkingSession session = new()
             {
                 Id = Guid.NewGuid(),
-                LicensePlate = dto.License_Plate,
-                SectorCode = sector.Code,
+                VehicleId = vehicle.Id,
                 EntryTimeUtc = dto.Entry_Time,
-                AppliedPricePerHour = decimal.Round(price, 2, MidpointRounding.AwayFromZero),
                 PricingTier = tier,
+                AppliedPricePerHour = 0m,
                 Status = ParkingStatus.Active
             };
 
@@ -85,16 +87,18 @@ public sealed class ParkingAppService(
             }, ct);
 
             var session = await sessionRepo.GetActiveByPlateAsync(dto.License_Plate, ct)
-                          ?? throw new InvalidOperationException("Sessão ativa não encontrada para a placa.");
+                ?? throw new InvalidOperationException("Sessão ativa não encontrada para a placa.");
 
-            // Localiza vaga pelo geo dentro do mesmo setor (heurística do simulador)
-            var spot = await spotRepo.FindByGeoAsync(session.SectorCode, dto.Lat, dto.Lng, ct)
-                       ?? throw new InvalidOperationException("Vaga não encontrada para as coordenadas informadas.");
+            var spot = await spotRepo.FindByGeoAsync(dto.Lat, dto.Lng, ct)
+                ?? throw new InvalidOperationException("Vaga não encontrada para as coordenadas informadas.");
 
-            // marca vaga ocupada e seta parkedTime
+            var sector = await sectorRepo.GetByIdAsync(session.SectorId!.Value, ct)
+                ?? throw new InvalidOperationException("Setor não encontrado para a sessão.");
+
             await spotRepo.SetOccupiedAsync(spot.Id, dto.License_Plate, ct);
             session.SpotId = spot.Id;
             session.ParkedTimeUtc = time.UtcNow;
+            session.AppliedPricePerHour = decimal.Round(sector.BasePrice * session.Multiplier, 2, MidpointRounding.AwayFromZero);
 
             await uow.SaveChangesAsync(ct);
         }, ct: ct);

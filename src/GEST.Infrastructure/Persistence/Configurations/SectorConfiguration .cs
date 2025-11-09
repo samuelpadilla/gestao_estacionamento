@@ -10,7 +10,8 @@ public class SectorConfiguration : IEntityTypeConfiguration<Sector>
     {
         builder.ToTable("Sectors");
 
-        builder.HasKey(x => x.Code);
+        builder.HasKey(x => x.Id)
+            .HasName("PK_Sector");
 
         builder.Property(x => x.Code)
                .HasMaxLength(10)
@@ -25,7 +26,14 @@ public class SectorConfiguration : IEntityTypeConfiguration<Sector>
 
         builder.HasMany(x => x.Spots)
                .WithOne(s => s.Sector)
-               .HasForeignKey(s => s.SectorCode)
-               .OnDelete(DeleteBehavior.Restrict);
+               .HasForeignKey(s => s.SectorId)
+               .OnDelete(DeleteBehavior.Restrict)
+               .HasConstraintName("FK_Sector_Spot");
+
+        builder.HasMany(x => x.ParkingSessions)
+               .WithOne(s => s.Sector)
+               .HasForeignKey(s => s.SectorId)
+               .OnDelete(DeleteBehavior.Restrict)
+               .HasConstraintName("FK_Sector_ParkingSession");
     }
 }

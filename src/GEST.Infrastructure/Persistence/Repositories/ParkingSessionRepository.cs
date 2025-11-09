@@ -5,33 +5,36 @@ using Microsoft.EntityFrameworkCore;
 
 namespace GEST.Infrastructure.Persistence.Repositories;
 
-public sealed class ParkingSessionRepository(GestDbContext db) : IParkingSessionRepository
+public class ParkingSessionRepository(
+    GestDbContext db
+    ) : BaseRepository<ParkingSession>(db), IParkingSessionRepository
 {
-    private readonly GestDbContext _db = db;
+    public async Task<int> CountActiveAsync(CancellationToken ct)
+        => await db.ParkingSessions.CountAsync(s => s.Status == ParkingStatus.Active, ct);
 
     public async Task<ParkingSession?> GetActiveByPlateAsync(string licensePlate, CancellationToken ct)
-        => await _db.ParkingSessions
-            .FirstOrDefaultAsync(s => s.LicensePlate == licensePlate && s.Status == ParkingStatus.Active, ct);
+        => await db.ParkingSessions
+            .FirstOrDefaultAsync(s => s.Vehicle.LicensePlate == licensePlate && s.Status == ParkingStatus.Active, ct);
      
     public async Task AddAsync(ParkingSession session, CancellationToken ct)
-        => await _db.ParkingSessions.AddAsync(session, ct);
+        => await db.ParkingSessions.AddAsync(session, ct);
 
     public async Task CloseAsync(Guid sessionId, DateTime exitUtc, decimal totalAmount, CancellationToken ct)
     {
-        var session = await _db.ParkingSessions.FirstOrDefaultAsync(s => s.Id == sessionId, ct)
+        var session = await db.ParkingSessions.FirstOrDefaultAsync(s => s.Id == sessionId, ct)
                       ?? throw new InvalidOperationException("Sessão não encontrada.");
         session.ExitTimeUtc = exitUtc;
         session.TotalAmount = totalAmount;
         session.Status = ParkingStatus.Closed;
     }
 
-    public async Task<decimal> SumRevenueAsync(string sectorCode, DateOnly dateUtc, CancellationToken ct)
+    public async Task<decimal> SumRevenueAsync(int sectorId, DateOnly dateUtc, CancellationToken ct)
     {
         var start = dateUtc.ToDateTime(TimeOnly.MinValue, DateTimeKind.Utc);
         var end = dateUtc.ToDateTime(TimeOnly.MaxValue, DateTimeKind.Utc);
 
-        return await _db.ParkingSessions
-            .Where(s => s.SectorCode == sectorCode
+        return await db.ParkingSessions
+            .Where(s => s.SectorId == sectorId
                         && s.Status == ParkingStatus.Closed
                         && s.ExitTimeUtc != null
                         && s.ExitTimeUtc >= start

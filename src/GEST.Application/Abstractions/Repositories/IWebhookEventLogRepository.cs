@@ -2,7 +2,6 @@
 
 namespace GEST.Application.Abstractions.Repositories;
 
-public interface IWebhookEventLogRepository
+public interface IWebhookEventLogRepository : IBaseRepository<WebhookEventLog>
 {
-    Task AddAsync(WebhookEventLog log, CancellationToken ct);
 }
