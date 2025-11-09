@@ -45,24 +45,25 @@ public sealed class ParkingAppService(
             if (totalSpotAvaliable == 0)
                 throw new InvalidOperationException("Estacionamento cheio. Entrada bloqueada.");
 
-            var vehicle = vehicleRepo.GetByLicensePlateAsync(dto.License_Plate, ct);
+            var vehicle = await vehicleRepo.GetByLicensePlateAsync(dto.License_Plate, ct);
 
             if (vehicle is null)
             {
                 await vehicleRepo.AddAsync(new Vehicle { LicensePlate = dto.License_Plate }, ct);
                 await uow.SaveChangesAsync(ct);
 
-                vehicle = vehicleRepo.GetByLicensePlateAsync(dto.License_Plate, ct);
+                vehicle = await vehicleRepo.GetByLicensePlateAsync(dto.License_Plate, ct);
             }
 
-            var (tier, multiplier) = PricingHelper.DecideDynamicPrice(totalSpotAvaliable, totalSpot);
+            var (tier, multiplier) = PricingHelper.DecideDynamicPrice(totalParkingSessions, totalSpot);
 
             ParkingSession session = new()
             {
                 Id = Guid.NewGuid(),
-                VehicleId = vehicle.Id,
+                VehicleId = vehicle!.Id,
                 EntryTimeUtc = dto.Entry_Time,
                 PricingTier = tier,
+                Multiplier = multiplier,
                 AppliedPricePerHour = 0m,
                 Status = ParkingStatus.Active
             };
@@ -92,11 +93,12 @@ public sealed class ParkingAppService(
             var spot = await spotRepo.FindByGeoAsync(dto.Lat, dto.Lng, ct)
                 ?? throw new InvalidOperationException("Vaga não encontrada para as coordenadas informadas.");
 
-            var sector = await sectorRepo.GetByIdAsync(session.SectorId!.Value, ct)
+            var sector = await sectorRepo.GetByIdAsync(spot.SectorId, ct)
                 ?? throw new InvalidOperationException("Setor não encontrado para a sessão.");
 
             await spotRepo.SetOccupiedAsync(spot.Id, dto.License_Plate, ct);
             session.SpotId = spot.Id;
+            session.SectorId = sector.Id;
             session.ParkedTimeUtc = time.UtcNow;
             session.AppliedPricePerHour = decimal.Round(sector.BasePrice * session.Multiplier, 2, MidpointRounding.AwayFromZero);
 
