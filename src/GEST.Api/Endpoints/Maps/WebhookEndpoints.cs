@@ -1,6 +1,7 @@
 ﻿using FluentValidation;
 using GEST.Application.Dtos.Webhook;
 using GEST.Application.Services.Parking;
+using GEST.Application.Notifications;
 using System.Text.Json;
 
 namespace GEST.Api.Endpoints.Garage;
@@ -18,11 +19,12 @@ public static class WebhookEndpoints
             IValidator<EntryEventDto> entryValidator,
             IValidator<ParkedEventDto> parkedValidator,
             IValidator<ExitEventDto> exitValidator,
+            INotificationContext notificationContext,
             CancellationToken ct) =>
         {
             if (!raw.TryGetProperty("event_type", out var eventTypeProp) || eventTypeProp.ValueKind != JsonValueKind.String)
                 return Results.BadRequest(new { error = "Campo 'event_type' é obrigatório." });
-            
+
             var eventType = eventTypeProp.GetString();
 
             var jsonOptions = new JsonSerializerOptions
@@ -30,55 +32,64 @@ public static class WebhookEndpoints
                 PropertyNameCaseInsensitive = true // ajuda a casar event_type/Event_Type etc.
             };
 
-            try
+            switch (eventType)
             {
-                switch (eventType)
-                {
-                    case "ENTRY":
-                        {
-                            var dto = raw.Deserialize<EntryEventDto>(jsonOptions)!;
-                            var val = await entryValidator.ValidateAsync(dto, ct);
+                case "ENTRY":
+                    {
+                        var dto = raw.Deserialize<EntryEventDto>(jsonOptions)!;
+                        var val = await entryValidator.ValidateAsync(dto, ct);
 
-                            if (!val.IsValid) 
-                                return Results.ValidationProblem(val.ToDictionary());
+                        if (!val.IsValid)
+                            return Results.ValidationProblem(val.ToDictionary());
 
-                            await parking.HandleEntryAsync(dto, ct);
-                            return Results.Ok();
-                        }
+                        await parking.HandleEntryAsync(dto, ct);
+                        if (notificationContext.HasNotifications())
+                            return BuildNotificationResult(notificationContext);
 
-                    case "PARKED":
-                        {
-                            var dto = raw.Deserialize<ParkedEventDto>(jsonOptions)!;
-                            var val = await parkedValidator.ValidateAsync(dto, ct);
-                            if (!val.IsValid) return Results.ValidationProblem(val.ToDictionary());
+                        return Results.Ok();
+                    }
 
-                            await parking.HandleParkedAsync(dto, ct);
-                            return Results.Ok();
-                        }
+                case "PARKED":
+                    {
+                        var dto = raw.Deserialize<ParkedEventDto>(jsonOptions)!;
+                        var val = await parkedValidator.ValidateAsync(dto, ct);
+                        if (!val.IsValid) return Results.ValidationProblem(val.ToDictionary());
 
-                    case "EXIT":
-                        {
-                            var dto = raw.Deserialize<ExitEventDto>(jsonOptions)!;
-                            var val = await exitValidator.ValidateAsync(dto, ct);
-                            if (!val.IsValid) return Results.ValidationProblem(val.ToDictionary());
+                        await parking.HandleParkedAsync(dto, ct);
+                        if (notificationContext.HasNotifications())
+                            return BuildNotificationResult(notificationContext);
 
-                            await parking.HandleExitAsync(dto, ct);
-                            return Results.Ok();
-                        }
+                        return Results.Ok();
+                    }
 
-                    default:
-                        return Results.BadRequest(new { error = "event_type inválido. Use ENTRY, PARKED ou EXIT." });
-                }
-            }
-            catch (Exception ex)
-            {
-                return Results.Problem(
-                    detail: ex.Message,
-                    statusCode: StatusCodes.Status500InternalServerError,
-                    title: "Erro ao processar webhook");
+                case "EXIT":
+                    {
+                        var dto = raw.Deserialize<ExitEventDto>(jsonOptions)!;
+                        var val = await exitValidator.ValidateAsync(dto, ct);
+                        if (!val.IsValid) return Results.ValidationProblem(val.ToDictionary());
+
+                        await parking.HandleExitAsync(dto, ct);
+                        if (notificationContext.HasNotifications())
+                            return BuildNotificationResult(notificationContext);
+
+                        return Results.Ok();
+                    }
+
+                default:
+                    return Results.BadRequest(new { error = "event_type inválido. Use ENTRY, PARKED ou EXIT." });
             }
         })
         .WithSummary("Recebe eventos ENTRY, PARKED e EXIT")
         .WithDescription("Endpoint único que roteia por event_type conforme o simulador.");
+    }
+
+    private static IResult BuildNotificationResult(INotificationContext ctx)
+    {
+        var errors = ctx.GetAll()
+            .Select(n => new { key = n.Key, message = n.Message })
+            .ToArray();
+
+        //422 Unprocessable Entity para erros de regra
+        return Results.UnprocessableEntity(new { errors });
     }
 }

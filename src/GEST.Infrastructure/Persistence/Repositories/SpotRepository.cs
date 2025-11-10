@@ -1,11 +1,14 @@
 ﻿using GEST.Application.Abstractions.Repositories;
+using GEST.Application.Abstractions; // para IPublishEvent
+using GEST.Application.Notifications; // DomainNotification
 using GEST.Domain.Entities;
 using Microsoft.EntityFrameworkCore;
 
 namespace GEST.Infrastructure.Persistence.Repositories;
 
 public sealed class SpotRepository(
-    GestDbContext db
+    GestDbContext db,
+    IPublishEvent publisher
     ) : BaseRepository<Spot>(db), ISpotRepository
 {
     public async Task<int> CountAllAsync(CancellationToken ct)
@@ -45,16 +48,24 @@ public sealed class SpotRepository(
 
     public async Task SetOccupiedAsync(int spotId, string licensePlate, CancellationToken ct)
     {
-        var spot = await db.Spots.FirstOrDefaultAsync(s => s.Id == spotId, ct)
-                   ?? throw new InvalidOperationException("Vaga não encontrada.");
+        var spot = await db.Spots.FirstOrDefaultAsync(s => s.Id == spotId, ct);
+        if (spot is null)
+        {
+            await publisher.PublishAsync(new DomainNotification("Spot.SetOccupied.NotFound", "Vaga não encontrada."), ct);
+            return;
+        }
         spot.IsOccupied = true;
         spot.CurrentLicensePlate = licensePlate;
     }
 
     public async Task FreeAsync(int spotId, CancellationToken ct)
     {
-        var spot = await db.Spots.FirstOrDefaultAsync(s => s.Id == spotId, ct)
-                   ?? throw new InvalidOperationException("Vaga não encontrada.");
+        var spot = await db.Spots.FirstOrDefaultAsync(s => s.Id == spotId, ct);
+        if (spot is null)
+        {
+            await publisher.PublishAsync(new DomainNotification("Spot.Free.NotFound", "Vaga não encontrada."), ct);
+            return;
+        }
         spot.IsOccupied = false;
         spot.CurrentLicensePlate = null;
     }

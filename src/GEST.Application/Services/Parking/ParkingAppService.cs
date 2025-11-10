@@ -1,6 +1,7 @@
 ﻿using GEST.Application.Abstractions;
 using GEST.Application.Abstractions.Repositories;
 using GEST.Application.Dtos.Webhook;
+using GEST.Application.Notifications;
 using GEST.Application.Services.Pricing;
 using GEST.Domain.Abstractions;
 using GEST.Domain.Entities;
@@ -22,12 +23,15 @@ public sealed class ParkingAppService(
     IParkingSessionRepository sessionRepo,
     IWebhookEventLogRepository logRepo,
     IUnitOfWork uow,
-    ITimeProvider time
+    ITimeProvider time,
+    IPublishEvent publisher
     ) : IParkingAppService
 {
     public async Task HandleEntryAsync(EntryEventDto dto, CancellationToken ct)
     {
-        await uow.ExecuteInTransactionAsync(async _ =>
+        using var transaction = await uow.BeginTransactionAsync(ct);
+
+        try
         {
             await logRepo.AddAsync(new WebhookEventLog
             {
@@ -42,8 +46,11 @@ public sealed class ParkingAppService(
             var totalParkingSessions = await sessionRepo.CountActiveAsync(ct);
             var totalSpotAvaliable = totalSpot - totalParkingSessions;
 
-            if (totalSpotAvaliable == 0)
-                throw new InvalidOperationException("Estacionamento cheio. Entrada bloqueada.");
+            if (totalSpotAvaliable <= 0)
+            {
+                await publisher.PublishAsync(new DomainNotification("Parking.Entry.Full", "Estacionamento cheio. Entrada bloqueada."), ct);
+                return;
+            }
 
             var vehicle = await vehicleRepo.GetByLicensePlateAsync(dto.License_Plate, ct);
 
@@ -53,6 +60,11 @@ public sealed class ParkingAppService(
                 await uow.SaveChangesAsync(ct);
 
                 vehicle = await vehicleRepo.GetByLicensePlateAsync(dto.License_Plate, ct);
+                if (vehicle is null)
+                {
+                    await publisher.PublishAsync(new DomainNotification("Parking.Entry.VehiclePersistFail", "Falha ao persistir veículo."), ct);
+                    return;
+                }
             }
 
             var (tier, multiplier) = PricingHelper.DecideDynamicPrice(totalParkingSessions, totalSpot);
@@ -70,12 +82,20 @@ public sealed class ParkingAppService(
 
             await sessionRepo.AddAsync(session, ct);
             await uow.SaveChangesAsync(ct);
-        }, ct: ct);
+            await uow.CommitAsync(ct);
+        }
+        catch (Exception)
+        {
+            await uow.RollbackAsync(ct);
+            throw;
+        }
     }
 
     public async Task HandleParkedAsync(ParkedEventDto dto, CancellationToken ct)
     {
-        await uow.ExecuteInTransactionAsync(async _ =>
+        using var transaction = await uow.BeginTransactionAsync(ct);
+
+        try
         {
             await logRepo.AddAsync(new WebhookEventLog
             {
@@ -87,14 +107,26 @@ public sealed class ParkingAppService(
                 RawPayloadJson = System.Text.Json.JsonSerializer.Serialize(dto)
             }, ct);
 
-            var session = await sessionRepo.GetActiveByPlateAsync(dto.License_Plate, ct)
-                ?? throw new InvalidOperationException("Sessão ativa não encontrada para a placa.");
+            var session = await sessionRepo.GetActiveByPlateAsync(dto.License_Plate, ct);
+            if (session is null)
+            {
+                await publisher.PublishAsync(new DomainNotification("Parking.Parked.SessionNotFound", "Sessão ativa não encontrada para a placa."), ct);
+                return;
+            }
 
-            var spot = await spotRepo.FindByGeoAsync(dto.Lat, dto.Lng, ct)
-                ?? throw new InvalidOperationException("Vaga não encontrada para as coordenadas informadas.");
+            var spot = await spotRepo.FindByGeoAsync(dto.Lat, dto.Lng, ct);
+            if (spot is null)
+            {
+                await publisher.PublishAsync(new DomainNotification("Parking.Parked.SpotNotFound", "Vaga não encontrada para as coordenadas informadas."), ct);
+                return;
+            }
 
-            var sector = await sectorRepo.GetByIdAsync(spot.SectorId, ct)
-                ?? throw new InvalidOperationException("Setor não encontrado para a sessão.");
+            var sector = await sectorRepo.GetByIdAsync(spot.SectorId, ct);
+            if (sector is null)
+            {
+                await publisher.PublishAsync(new DomainNotification("Parking.Parked.SectorNotFound", "Setor não encontrado para a sessão."), ct);
+                return;
+            }
 
             await spotRepo.SetOccupiedAsync(spot.Id, dto.License_Plate, ct);
             session.SpotId = spot.Id;
@@ -103,12 +135,20 @@ public sealed class ParkingAppService(
             session.AppliedPricePerHour = decimal.Round(sector.BasePrice * session.Multiplier, 2, MidpointRounding.AwayFromZero);
 
             await uow.SaveChangesAsync(ct);
-        }, ct: ct);
+            await uow.CommitAsync(ct);
+        }
+        catch (Exception)
+        {
+            await uow.RollbackAsync(ct);
+            throw;
+        }
     }
 
     public async Task HandleExitAsync(ExitEventDto dto, CancellationToken ct)
     {
-        await uow.ExecuteInTransactionAsync(async _ =>
+        using var transaction = await uow.BeginTransactionAsync(ct);
+
+        try
         {
             await logRepo.AddAsync(new WebhookEventLog
             {
@@ -119,8 +159,12 @@ public sealed class ParkingAppService(
                 RawPayloadJson = System.Text.Json.JsonSerializer.Serialize(dto)
             }, ct);
 
-            var session = await sessionRepo.GetActiveByPlateAsync(dto.License_Plate, ct)
-                          ?? throw new InvalidOperationException("Sessão ativa não encontrada para a placa.");
+            var session = await sessionRepo.GetActiveByPlateAsync(dto.License_Plate, ct);
+            if (session is null)
+            {
+                await publisher.PublishAsync(new DomainNotification("Parking.Exit.SessionNotFound", "Sessão ativa não encontrada para a placa."), ct);
+                return;
+            }
 
             var exitUtc = dto.Exit_Time;
             var amount = PricingHelper.ComputeAmount(session.EntryTimeUtc, exitUtc, session.AppliedPricePerHour);
@@ -131,6 +175,12 @@ public sealed class ParkingAppService(
                 await spotRepo.FreeAsync(spotId, ct);
 
             await uow.SaveChangesAsync(ct);
-        }, ct: ct);
+            await uow.CommitAsync(ct);
+        }
+        catch (Exception)
+        {
+            await uow.RollbackAsync(ct);
+            throw;
+        }
     }
 }

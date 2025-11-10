@@ -1,8 +1,10 @@
 ﻿using FluentValidation;
 using GEST.Application.Abstractions;
 using GEST.Application.Mapping;
+using GEST.Application.Notifications;
 using GEST.Application.Services.Garage;
 using GEST.Application.Services.Parking;
+using GEST.Application.Services.PublishEvent;
 using GEST.Application.Services.Revenue;
 using GEST.Application.Services.Time;
 using Microsoft.Extensions.Configuration;
@@ -19,6 +21,13 @@ public static class ApplicationSetup
 
         // Validators
         services.AddValidatorsFromAssembly(typeof(ApplicationSetup).Assembly);
+
+        // MediatR
+        services.AddMediatR(cfg => cfg.RegisterServicesFromAssembly(typeof(ApplicationSetup).Assembly));
+
+        // Notifications
+        services.AddScoped<INotificationContext, NotificationContext>();
+        services.AddScoped<IPublishEvent, MediatorPublishEvent>();
 
         // Services
         services.AddScoped<IGarageAppService, GarageAppService>();

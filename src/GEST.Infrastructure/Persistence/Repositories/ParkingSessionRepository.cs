@@ -1,4 +1,6 @@
 ﻿using GEST.Application.Abstractions.Repositories;
+using GEST.Application.Abstractions; // IPublishEvent
+using GEST.Application.Notifications; // DomainNotification
 using GEST.Domain.Entities;
 using GEST.Domain.Enums;
 using Microsoft.EntityFrameworkCore;
@@ -6,7 +8,8 @@ using Microsoft.EntityFrameworkCore;
 namespace GEST.Infrastructure.Persistence.Repositories;
 
 public class ParkingSessionRepository(
-    GestDbContext db
+    GestDbContext db,
+    IPublishEvent publisher
     ) : BaseRepository<ParkingSession>(db), IParkingSessionRepository
 {
     public async Task<int> CountActiveAsync(CancellationToken ct)
@@ -18,8 +21,13 @@ public class ParkingSessionRepository(
 
     public async Task CloseAsync(Guid sessionId, DateTime exitUtc, decimal totalAmount, CancellationToken ct)
     {
-        var session = await db.ParkingSessions.FirstOrDefaultAsync(s => s.Id == sessionId, ct)
-                      ?? throw new InvalidOperationException("Sessão não encontrada.");
+        var session = await db.ParkingSessions.FirstOrDefaultAsync(s => s.Id == sessionId, ct);
+        if (session is null)
+        {
+            await publisher.PublishAsync(new DomainNotification("ParkingSession.Close.NotFound", "Sessão não encontrada."), ct);
+            return;
+        }
+
         session.ExitTimeUtc = exitUtc;
         session.TotalAmount = totalAmount;
         session.Status = ParkingStatus.Closed;

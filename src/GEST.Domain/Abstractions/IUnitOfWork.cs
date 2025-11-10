@@ -1,10 +1,13 @@
-﻿using System.Data;
+﻿using Microsoft.EntityFrameworkCore.Storage;
+using System.Data;
 
 namespace GEST.Domain.Abstractions;
 
 public interface IUnitOfWork : IAsyncDisposable
 {
     Task<int> SaveChangesAsync(CancellationToken ct = default);
+
+    Task<IDbContextTransaction> BeginTransactionAsync(CancellationToken ct = default);
 
     Task BeginTransactionAsync(IsolationLevel isolationLevel = IsolationLevel.ReadCommitted, CancellationToken ct = default);
 
