@@ -15,9 +15,6 @@ public class ParkingSessionRepository(
     public async Task<ParkingSession?> GetActiveByPlateAsync(string licensePlate, CancellationToken ct)
         => await db.ParkingSessions
             .FirstOrDefaultAsync(s => s.Vehicle.LicensePlate == licensePlate && s.Status == ParkingStatus.Active, ct);
-     
-    public async Task AddAsync(ParkingSession session, CancellationToken ct)
-        => await db.ParkingSessions.AddAsync(session, ct);
 
     public async Task CloseAsync(Guid sessionId, DateTime exitUtc, decimal totalAmount, CancellationToken ct)
     {

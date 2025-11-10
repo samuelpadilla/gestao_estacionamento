@@ -1,0 +1,34 @@
+services:
+  api:
+    profiles: [ "prod" ]
+
+  api-dev:
+    image: mcr.microsoft.com/dotnet/sdk:9.0
+    container_name: gest-api-dev
+    working_dir: /src
+    networks: [ gest-net ]
+    depends_on:
+      mssql:
+        condition: service_healthy
+    environment:
+      - ASPNETCORE_ENVIRONMENT=Development
+      - ASPNETCORE_URLS=http://0.0.0.0:8080
+      # Em ambientes Windows/WSL, a detecção de mudanças por FSW às vezes falha; use polling:
+      - DOTNET_USE_POLLING_FILE_WATCHER=1
+      - DOTNET_WATCH_RESTART_ON_RUDE_EDIT=1
+      - ConnectionStrings__ConnGest=Server=mssql,1433;Database=GestDb;User Id=sa;Password=${SA_PASSWORD};TrustServerCertificate=True;Encrypt=False;
+    ports:
+      - "5199:8080"
+    volumes:
+      - ../src:/src
+      - dotnet_nuget:/root/.nuget/packages"
+      - ${APPDATA:-$HOME/.microsoft}/Microsoft/UserSecrets:/root/.microsoft/usersecrets:ro"
+      - ${APPDATA:-$HOME/.aspnet}/ASP.NET/Https:/root/.aspnet/https:ro"
+    command: >
+      bash -lc "
+        dotnet restore ./GEST.Api/GEST.Api.csproj &&
+        dotnet watch --non-interactive --project ./GEST.Api run --no-launch-profile --urls http://0.0.0.0:8080
+      "
+
+volumes:
+  dotnet_nuget:

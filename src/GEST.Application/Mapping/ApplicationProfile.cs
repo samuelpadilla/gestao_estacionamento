@@ -15,7 +15,7 @@ public sealed class ApplicationProfile : Profile
             .ReverseMap();
 
         CreateMap<GarageSpotDto, Spot>()
-            .ForMember(d => d.Sector.Code, m => m.MapFrom(s => s.SectorCode))
+            .ForPath(d => d.Sector.Code, m => m.MapFrom(s => s.SectorCode))
             .ForMember(d => d.IsOccupied, m => m.Ignore())
             .ForMember(d => d.CurrentLicensePlate, m => m.Ignore())
             .ForMember(d => d.ParkingSessions, m => m.Ignore())

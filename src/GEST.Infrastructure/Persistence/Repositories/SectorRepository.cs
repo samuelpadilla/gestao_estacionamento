@@ -11,9 +11,6 @@ public class SectorRepository(
     public async Task<Sector?> GetAsync(string code, CancellationToken ct)
         => await db.Sectors.AsNoTracking().FirstOrDefaultAsync(s => s.Code == code, ct);
 
-    public async Task<IEnumerable<Sector>> GetAllAsync(CancellationToken ct)
-        => await db.Sectors.AsNoTracking().ToListAsync(ct);
-
     public async Task UpsertAsync(IEnumerable<Sector> sectors, CancellationToken ct)
     {
         var set = db.Sectors;

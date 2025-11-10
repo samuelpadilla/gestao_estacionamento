@@ -23,7 +23,7 @@ public sealed class GarageAppService(
     public async Task<GarageConfigDto> GetAsync(CancellationToken ct)
     {        
         var sectors = await sectorRepo.GetAllAsync(ct);
-        var spots = await spotRepo.GetAllAsync(ct);
+        var spots = await spotRepo.GetAllAsync("Sector", ct);
         
         return new GarageConfigDto
         {
@@ -35,11 +35,11 @@ public sealed class GarageAppService(
     public async Task<GarageStateDto> GetStateAsync(CancellationToken ct)
     {
         var sectors = await sectorRepo.GetAllAsync(ct);
-        var spots = await spotRepo.GetAllAsync(ct);
+        var spots = await spotRepo.GetAllAsync("Sector", ct);
 
         var state = new GarageStateDto
         {
-            Sectors = new List<GarageSectorStateDto>()
+            Sectors = []
         };
 
         foreach (var sector in sectors)

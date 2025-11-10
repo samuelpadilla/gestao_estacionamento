@@ -17,6 +17,21 @@ public class BaseRepository<T>(
     public virtual async Task<IEnumerable<T>> GetAllAsync(CancellationToken ct = default)
         => await _set.AsNoTracking().ToListAsync(ct);
 
+    public virtual async Task<IEnumerable<T>> GetAllAsync(string includes, CancellationToken ct = default)
+    {
+        IQueryable<T> query = _set.AsNoTracking();
+
+        if (!string.IsNullOrEmpty(includes))
+        {
+            foreach (string include in includes.Split([','], StringSplitOptions.RemoveEmptyEntries))
+            {
+                query = query.Include(include);
+            }
+        }
+
+        return await query.ToListAsync(ct);
+    }
+
     public virtual async Task<IEnumerable<T>> FindAsync(Expression<Func<T, bool>> predicate, CancellationToken ct = default)
         => await _set.AsNoTracking().Where(predicate).ToListAsync(ct);
 

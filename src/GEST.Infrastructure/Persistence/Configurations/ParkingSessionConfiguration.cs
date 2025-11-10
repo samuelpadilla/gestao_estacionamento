@@ -27,6 +27,9 @@ public class ParkingSessionConfiguration : IEntityTypeConfiguration<ParkingSessi
         builder.Property(x => x.TotalAmount)
                .HasPrecision(12, 2);
 
+        builder.Property(x => x.Multiplier)
+               .HasPrecision(18, 2);
+
         builder.Property(x => x.PricingTier)
                .HasConversion<int>()
                .IsRequired();

@@ -1,0 +1,17 @@
+# ===== Build =====
+FROM mcr.microsoft.com/dotnet/sdk:9.0 AS build
+WORKDIR /src
+COPY ./src/GEST.Domain/GEST.Domain.csproj ./GEST.Domain/
+COPY ./src/GEST.Application/GEST.Application.csproj ./GEST.Application/
+COPY ./src/GEST.Infrastructure/GEST.Infrastructure.csproj ./GEST.Infrastructure/
+COPY ./src/GEST.Api/GEST.Api.csproj ./GEST.Api/
+RUN dotnet restore ./GEST.Api/GEST.Api.csproj
+COPY ./src/ ./
+RUN dotnet publish ./GEST.Api/GEST.Api.csproj -c Release -o /app/publish /p:UseAppHost=false
+
+FROM mcr.microsoft.com/dotnet/aspnet:9.0 AS runtime
+WORKDIR /app
+ENV ASPNETCORE_URLS=http://0.0.0.0:8080
+EXPOSE 8080
+COPY --from=build /app/publish ./
+ENTRYPOINT ["dotnet", "GEST.Api.dll"]
