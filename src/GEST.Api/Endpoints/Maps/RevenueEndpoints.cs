@@ -28,8 +28,10 @@ public static class RevenueEndpoints
 
             if (notificationContext.HasNotifications())
             {
-                var errors = notificationContext.GetAll().Select(n => new { key = n.Key, message = n.Message }).ToArray();
-                return Results.UnprocessableEntity(new { errors });
+                var dict = notificationContext.GetAll()
+                    .GroupBy(n => n.Key)
+                    .ToDictionary(g => g.Key, g => g.Select(n => n.Message).ToArray());
+                return Results.ValidationProblem(dict, statusCode: 422, title: "Business rule violation");
             }
 
             return Results.Ok(new

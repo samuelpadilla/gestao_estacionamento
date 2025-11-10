@@ -1,279 +1,156 @@
-﻿using System.Net.Http.Json;
+﻿using Gest.Simulador.Dtos;
+using System.Net.Http.Json;
 using System.Text.Json;
-using System.Text.Json.Serialization;
 
-var baseUrl = "https://localhost:7004";
-
-using var cts = new CancellationTokenSource();
-Console.CancelKeyPress += (_, e) =>
-{
-    Console.WriteLine("Cancel requested, shutting down...");
-    e.Cancel = true;
-    cts.Cancel();
-};
-
+var baseUrl = "https://localhost:7004"; // ajuste conforme necessário
 var http = new HttpClient { BaseAddress = new Uri(baseUrl) };
 var jsonOptions = new JsonSerializerOptions(JsonSerializerDefaults.Web)
 {
     PropertyNameCaseInsensitive = true
 };
 
-// 1) GET /garage
 Console.WriteLine($"GET {baseUrl}/garage");
 GarageConfigDto? config;
 try
 {
-    using var resp = await http.GetAsync("/garage", cts.Token);
-    if (!resp.IsSuccessStatusCode)
-    {
-        Console.WriteLine($"Failed to GET /garage: {(int)resp.StatusCode} {resp.ReasonPhrase}");
-        return;
-    }
-
-    var stream = await resp.Content.ReadAsStreamAsync(cts.Token);
-    config = await JsonSerializer.DeserializeAsync<GarageConfigDto>(stream, jsonOptions, cts.Token);
+    using var resp = await http.GetAsync("/garage");
+    resp.EnsureSuccessStatusCode();
+    config = await resp.Content.ReadFromJsonAsync<GarageConfigDto>(jsonOptions);
     if (config is null)
     {
-        Console.WriteLine("Received empty or invalid configuration from /garage.");
+        Console.WriteLine("Configuração inválida.");
         return;
     }
-}
-catch (OperationCanceledException) when (cts.IsCancellationRequested)
-{
-    Console.WriteLine("Operation cancelled.");
-    return;
 }
 catch (Exception ex)
 {
-    Console.WriteLine($"Error fetching /garage: {ex.Message}");
+    Console.WriteLine($"Erro ao obter /garage: {ex.Message}");
     return;
 }
 
-Console.WriteLine("Garage configuration loaded");
-Console.WriteLine($"  Sectors: {config.Garage?.Count ?? 0}");
-Console.WriteLine($"  Spots: {config.Spots?.Count ?? 0}");
+Console.WriteLine($"Garage configuration loaded. Sectors: {config.Garage.Count} Spots: {config.Spots.Count}");
 
-// --- Bulk generate 100 ENTRY events for sector A ---
-const int entriesToGenerate = 100;
-var spotsInA = config.Spots?.Where(s => string.Equals(s.Sector, "A", StringComparison.OrdinalIgnoreCase)).ToList()
-               ?? new List<GarageSpotDto>();
-
-if (spotsInA.Count == 0)
-{
-    Console.WriteLine("No spots found in sector A. Skipping bulk ENTRY generation.");
-}
-else
-{
-    Console.WriteLine($"Generating {entriesToGenerate} ENTRY events for sector A...");
-    for (int i = 0; i < entriesToGenerate && !cts.IsCancellationRequested; i++)
-    {
-        var license = GeneratePlate(new Random());
-        var entry = new EntryWebhook
-        {
-            LicensePlate = license,
-            EntryTime = DateTime.UtcNow,
-            EventType = "ENTRY",
-        };
-
-        try
-        {
-            var postResp = await http.PostAsJsonAsync("/webhook", entry, jsonOptions, cts.Token);
-            if (postResp.IsSuccessStatusCode)
-            {
-                Console.WriteLine($"[{DateTime.UtcNow:O}] Bulk ENTRY #{i + 1} sent: {entry.LicensePlate}");
-            }
-            else
-            {
-                Console.WriteLine($"[{DateTime.UtcNow:O}] Failed bulk ENTRY #{i + 1}: {(int)postResp.StatusCode} {postResp.ReasonPhrase}");
-                var body = await postResp.Content.ReadAsStringAsync(cts.Token);
-                if (!string.IsNullOrEmpty(body)) Console.WriteLine($"  Response body: {body}");
-            }
-        }
-        catch (OperationCanceledException) when (cts.IsCancellationRequested)
-        {
-            break;
-        }
-        catch (Exception ex)
-        {
-            Console.WriteLine($"[{DateTime.UtcNow:O}] Exception sending bulk ENTRY #{i + 1}: {ex.Message}");
-        }
-
-        // small pause to avoid overwhelming the receiver (adjustable)
-        try { await Task.Delay(50, cts.Token); } catch (OperationCanceledException) { break; }
-    }
-
-    Console.WriteLine("Bulk ENTRY generation finished.");
-}
-
-// 2) Start sending events periodically (cycle through ENTRY -> PARKED -> EXIT)
-var rnd = new Random();
-var intervalSeconds = 5;
-Console.WriteLine($"Sending events every {intervalSeconds} second(s). Press Ctrl+C to stop.");
-
-int eventCounter = 0;
-while (!cts.IsCancellationRequested)
-{
-    eventCounter++;
-    var ev = CreateSimulatedWebhookEvent(config, rnd, eventCounter);
-
-    try
-    {
-        var postResp = await http.PostAsJsonAsync("/webhook", ev, jsonOptions, cts.Token);
-        if (postResp.IsSuccessStatusCode)
-        {
-            Console.WriteLine($"[{DateTime.UtcNow:O}] Sent event #{eventCounter}: {GetEventType(ev)} (status {(int)postResp.StatusCode})");
-        }
-        else
-        {
-            Console.WriteLine($"[{DateTime.UtcNow:O}] Failed to send event #{eventCounter}: {(int)postResp.StatusCode} {postResp.ReasonPhrase}");
-            var body = await postResp.Content.ReadAsStringAsync(cts.Token);
-            if (!string.IsNullOrEmpty(body)) Console.WriteLine($"  Response body: {body}");
-        }
-    }
-    catch (OperationCanceledException) when (cts.IsCancellationRequested)
-    {
-        break;
-    }
-    catch (Exception ex)
-    {
-        Console.WriteLine($"[{DateTime.UtcNow:O}] Exception sending event: {ex.Message}");
-    }
-
-    try
-    {
-        await Task.Delay(TimeSpan.FromSeconds(intervalSeconds), cts.Token);
-    }
-    catch (OperationCanceledException) when (cts.IsCancellationRequested)
-    {
-        break;
-    }
-}
-
-Console.WriteLine("Simulator stopped.");
-
-static object CreateSimulatedWebhookEvent(GarageConfigDto config, Random rnd, int seq)
-{
-    // Cycle through three event types so all examples are produced predictably
-    var cycle = seq % 3;
-    var license = GeneratePlate(rnd);
-
-    // choose a spot if available for PARKED events
-    GarageSpotDto? spot = null;
-    if (config.Spots is { Count: > 0 })
-        spot = config.Spots[rnd.Next(config.Spots.Count)];
-
-    return cycle switch
-    {
-        1 => new EntryWebhook
-        {
-            LicensePlate = license,
-            EntryTime = DateTime.UtcNow,
-            EventType = "ENTRY"
-        },
-        2 => new ParkedWebhook
-        {
-            LicensePlate = license,
-            Lat = spot?.Lat ?? (-23.561684 + (rnd.NextDouble() - 0.5) * 0.001),
-            Lng = spot?.Lng ?? (-46.655981 + (rnd.NextDouble() - 0.5) * 0.001),
-            EventType = "PARKED"
-        },
-        _ => new ExitWebhook
-        {
-            LicensePlate = license,
-            ExitTime = DateTime.UtcNow,
-            EventType = "EXIT"
-        }
-    };
-}
-
-static string GetEventType(object ev)
-{
-    return ev switch
-    {
-        EntryWebhook e => e.EventType,
-        ParkedWebhook p => p.EventType,
-        ExitWebhook x => x.EventType,
-        _ => "unknown"
-    };
-}
-
-static string GeneratePlate(Random rnd)
+string GeneratePlate()
 {
     const string letters = "ABCDEFGHIJKLMNOPQRSTUVWXYZ";
+    var rnd = Random.Shared;
     return string.Concat(
         letters[rnd.Next(letters.Length)],
         letters[rnd.Next(letters.Length)],
         letters[rnd.Next(letters.Length)],
-        rnd.Next(1, 9999).ToString("D4")
+        rnd.Next(0, 9999).ToString("D4")
     );
 }
 
-// Webhook payload shapes required by receiver (snake_case)
-internal sealed class EntryWebhook
+async Task PostAsync(object payload, string label)
 {
-    [JsonPropertyName("license_plate")]
-    public string? LicensePlate { get; set; }
+    try
+    {
+        var resp = await http.PostAsJsonAsync("/webhook", payload, jsonOptions);
+        if (resp.IsSuccessStatusCode)
+        {
+            Console.WriteLine($"[{DateTime.UtcNow:O}] {label} enviado com sucesso");
+            return;
+        }
 
-    [JsonPropertyName("entry_time")]
-    public DateTime EntryTime { get; set; }
+        var body = await resp.Content.ReadAsStringAsync();
+        Console.WriteLine($"[{DateTime.UtcNow:O}] Falha {label}: {(int)resp.StatusCode} {resp.ReasonPhrase}");
 
-    [JsonPropertyName("event_type")]
-    public string? EventType { get; set; }
+        // Tenta decodificar ValidationProblem (Formatação usada pela API)
+        try
+        {
+            using var doc = JsonDocument.Parse(body);
+            var root = doc.RootElement;
+            if (root.TryGetProperty("errors", out var errorsElem) && errorsElem.ValueKind == JsonValueKind.Object)
+            {
+                foreach (var prop in errorsElem.EnumerateObject())
+                {
+                    var key = prop.Name;
+                    var arr = prop.Value;
+                    if (arr.ValueKind == JsonValueKind.Array)
+                    {
+                        foreach (var msg in arr.EnumerateArray())
+                        {
+                            Console.WriteLine($" - {key}: {msg.GetString()}");
+                        }
+                    }
+                    else if (arr.ValueKind == JsonValueKind.String)
+                    {
+                        Console.WriteLine($" - {key}: {arr.GetString()}");
+                    }
+                }
+                return; // já exibido estruturado
+            }
+        }
+        catch (Exception parseEx)
+        {
+            Console.WriteLine($" (Falha ao parsear JSON de erro: {parseEx.Message})");
+        }
+
+        // fallback: corpo bruto
+        if (!string.IsNullOrWhiteSpace(body))
+            Console.WriteLine(" Corpo:");
+        Console.WriteLine(" " + body.Replace('\n', ' ').Trim());
+    }
+    catch (Exception ex)
+    {
+        Console.WriteLine($"[{DateTime.UtcNow:O}] Erro ao enviar {label}: {ex.Message}");
+    }
 }
 
-internal sealed class ParkedWebhook
+async Task SimulateSequenceAsync(int index, string? plate = null)
 {
-    [JsonPropertyName("license_plate")]
-    public string? LicensePlate { get; set; }
+    plate ??= GeneratePlate();
+    Console.WriteLine($"Iniciando sequência para {plate}...");
 
-    [JsonPropertyName("lat")]
-    public double Lat { get; set; }
+    // Duração aleatória entre 10 minutos e 6 horas
+    var durationMinutes = Random.Shared.Next(10, 361); // 10..360
+    var exitTime = DateTime.UtcNow; // saída no momento do envio
+    var entryTime = exitTime.AddMinutes(-durationMinutes);
 
-    [JsonPropertyName("lng")]
-    public double Lng { get; set; }
+    var spot = config.Spots.FirstOrDefault();
+    if (spot is null)
+    {
+        Console.WriteLine("Nenhuma vaga disponível para simulação PARKED.");
+        return;
+    }
 
-    [JsonPropertyName("event_type")]
-    public string? EventType { get; set; }
+    var entry = new EntryWebhook
+    {
+        LicensePlate = plate,
+        EntryTime = entryTime,
+        EventType = "ENTRY"
+    };
+
+    var parked = new ParkedWebhook
+    {
+        LicensePlate = plate,
+        Lat = spot.Lat,
+        Lng = spot.Lng,
+        EventType = "PARKED"
+    };
+
+    var exit = new ExitWebhook
+    {
+        LicensePlate = plate,
+        ExitTime = exitTime,
+        EventType = "EXIT"
+    };
+
+    await PostAsync(entry, "ENTRY");
+    await Task.Delay(300); // pequeno intervalo
+    await PostAsync(parked, "PARKED");
+    await Task.Delay(300);
+    await PostAsync(exit, "EXIT");
+
+    Console.WriteLine($"Sequência concluída para {plate}. (duração ~{durationMinutes} min)");
 }
 
-internal sealed class ExitWebhook
+int sequences = 3; // config.Spots.Count();
+for (int i = 0; i < sequences; i++)
 {
-    [JsonPropertyName("license_plate")]
-    public string? LicensePlate { get; set; }
-
-    [JsonPropertyName("exit_time")]
-    public DateTime ExitTime { get; set; }
-
-    [JsonPropertyName("event_type")]
-    public string? EventType { get; set; }
+    await SimulateSequenceAsync(i);
 }
 
-internal class GarageConfigDto
-{
-    [JsonPropertyName("garage")]
-    public List<GarageSectorDto> Garage { get; set; } = [];
-    [JsonPropertyName("spots")]
-    public List<GarageSpotDto> Spots { get; set; } = [];
-}
-
-internal class GarageSectorDto
-{
-    [JsonPropertyName("sector")]
-    public string Sector { get; set; } = default!;
-    [JsonPropertyName("basePrice")]
-    public decimal BasePrice { get; set; }
-    [JsonPropertyName("max_capacity")]
-    public int Max_Capacity { get; set; }
-}
-
-internal class GarageSpotDto
-{
-    [JsonPropertyName("id")]
-    public int Id { get; set; }
-    [JsonPropertyName("sector")]
-    public string Sector { get; set; } = default!;
-    [JsonPropertyName("lat")]
-    public double Lat { get; set; }
-    [JsonPropertyName("lng")]
-    public double Lng { get; set; }
-}
+Console.WriteLine("Simulação finalizada.");
+Console.ReadKey();

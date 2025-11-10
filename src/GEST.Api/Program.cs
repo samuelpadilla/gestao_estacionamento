@@ -1,5 +1,4 @@
 using GEST.Api.Endpoints;
-using GEST.Api.HostedServices;
 using GEST.Application;
 using GEST.Infrastructure.Persistence;
 using GEST.Infrastructure.Setup;
@@ -69,8 +68,6 @@ try
     builder.Services
         .AddInfrastructure(config, env)
         .AddApplication(config);
-
-    //builder.Services.AddHostedService<GarageSyncHostedService>();
 
     var app = builder.Build();
 

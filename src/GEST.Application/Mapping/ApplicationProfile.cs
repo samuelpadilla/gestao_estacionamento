@@ -15,11 +15,15 @@ public sealed class ApplicationProfile : Profile
             .ReverseMap();
 
         CreateMap<GarageSpotDto, Spot>()
-            .ForPath(d => d.Sector.Code, m => m.MapFrom(s => s.SectorCode))
+            .ForMember(d => d.Id, m => m.MapFrom(s => s.Id))
+            .ForMember(d => d.SectorId, m => m.Ignore()) // resolvido externamente via código do setor
+            .ForMember(d => d.Lat, m => m.MapFrom(s => s.Lat))
+            .ForMember(d => d.Lng, m => m.MapFrom(s => s.Lng))
             .ForMember(d => d.IsOccupied, m => m.Ignore())
             .ForMember(d => d.CurrentLicensePlate, m => m.Ignore())
             .ForMember(d => d.ParkingSessions, m => m.Ignore())
             .ForMember(d => d.Sector, m => m.Ignore())
-            .ReverseMap();
+            .ReverseMap()
+            .ForMember(d => d.SectorCode, m => m.Ignore());
     }
 }

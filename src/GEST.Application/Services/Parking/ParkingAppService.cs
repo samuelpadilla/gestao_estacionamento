@@ -82,11 +82,11 @@ public sealed class ParkingAppService(
 
             await sessionRepo.AddAsync(session, ct);
             await uow.SaveChangesAsync(ct);
-            await uow.CommitAsync(ct);
+            await transaction.CommitAsync(ct);
         }
         catch (Exception)
         {
-            await uow.RollbackAsync(ct);
+            await transaction.RollbackAsync(ct);
             throw;
         }
     }
@@ -135,11 +135,11 @@ public sealed class ParkingAppService(
             session.AppliedPricePerHour = decimal.Round(sector.BasePrice * session.Multiplier, 2, MidpointRounding.AwayFromZero);
 
             await uow.SaveChangesAsync(ct);
-            await uow.CommitAsync(ct);
+            await transaction.CommitAsync(ct);
         }
         catch (Exception)
         {
-            await uow.RollbackAsync(ct);
+            await transaction.RollbackAsync(ct);
             throw;
         }
     }
@@ -175,11 +175,11 @@ public sealed class ParkingAppService(
                 await spotRepo.FreeAsync(spotId, ct);
 
             await uow.SaveChangesAsync(ct);
-            await uow.CommitAsync(ct);
+            await transaction.CommitAsync(ct);
         }
         catch (Exception)
         {
-            await uow.RollbackAsync(ct);
+            await transaction.RollbackAsync(ct);
             throw;
         }
     }

@@ -38,7 +38,6 @@ public static class WebhookEndpoints
                     {
                         var dto = raw.Deserialize<EntryEventDto>(jsonOptions)!;
                         var val = await entryValidator.ValidateAsync(dto, ct);
-
                         if (!val.IsValid)
                             return Results.ValidationProblem(val.ToDictionary());
 
@@ -53,7 +52,8 @@ public static class WebhookEndpoints
                     {
                         var dto = raw.Deserialize<ParkedEventDto>(jsonOptions)!;
                         var val = await parkedValidator.ValidateAsync(dto, ct);
-                        if (!val.IsValid) return Results.ValidationProblem(val.ToDictionary());
+                        if (!val.IsValid)
+                            return Results.ValidationProblem(val.ToDictionary());
 
                         await parking.HandleParkedAsync(dto, ct);
                         if (notificationContext.HasNotifications())
@@ -66,7 +66,8 @@ public static class WebhookEndpoints
                     {
                         var dto = raw.Deserialize<ExitEventDto>(jsonOptions)!;
                         var val = await exitValidator.ValidateAsync(dto, ct);
-                        if (!val.IsValid) return Results.ValidationProblem(val.ToDictionary());
+                        if (!val.IsValid)
+                            return Results.ValidationProblem(val.ToDictionary());
 
                         await parking.HandleExitAsync(dto, ct);
                         if (notificationContext.HasNotifications())
@@ -85,11 +86,11 @@ public static class WebhookEndpoints
 
     private static IResult BuildNotificationResult(INotificationContext ctx)
     {
-        var errors = ctx.GetAll()
-            .Select(n => new { key = n.Key, message = n.Message })
-            .ToArray();
+        var dict = ctx.GetAll()
+            .GroupBy(n => n.Key)
+            .ToDictionary(g => g.Key, g => g.Select(n => n.Message).ToArray());
 
-        //422 Unprocessable Entity para erros de regra
-        return Results.UnprocessableEntity(new { errors });
+        //422 Unprocessable Entity no formato ValidationProblem para padronizar com FluentValidation
+        return Results.ValidationProblem(dict, statusCode: 422, title: "Business rule violation");
     }
 }
